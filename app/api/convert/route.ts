@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
+// Extend Vercel function execution timeout for slow mobile conversions
+export const maxDuration = 30;
+
+// Helper function to extract the 11-character YouTube video ID
 function extractVideoId(url: string): string | null {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
   return match ? match[1] : null;
@@ -32,11 +36,10 @@ export async function GET(request: NextRequest) {
         'x-rapidapi-host': process.env.RAPIDAPI_HOST,
         'Content-Type': 'application/json',
       },
+      timeout: 25000, // 25s timeout limit for the external API call
     });
 
     const data = response.data;
-
-    // Direct match with the RapidAPI payload
     const downloadLink = data.linkDownload || data.linkStream;
 
     if (downloadLink) {
@@ -44,17 +47,16 @@ export async function GET(request: NextRequest) {
         title: data.title || 'YouTube Media',
         author: data.author,
         downloadUrl: downloadLink,
-        thumbnail: data.thumbnail?.thumbnails?.[0]?.url,
         format: format,
       });
     }
 
     return NextResponse.json(
-      { error: 'Could not extract download link from server response.' },
+      { error: data.msg || data.message || 'Could not extract download link from server response.' },
       { status: 400 }
     );
   } catch (err: any) {
-    const errorMsg = err.response?.data?.message || err.message;
+    const errorMsg = err.response?.data?.message || err.response?.data?.msg || err.message;
     return NextResponse.json({ error: errorMsg || 'Conversion failed' }, { status: 500 });
   }
 }
